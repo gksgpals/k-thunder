@@ -1,14 +1,12 @@
-import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
 import "dotenv/config";
 
-const lambda = new LambdaClient({ region: process.env.AWS_REGION || "ap-northeast-2" });
+const LAMBDA_URL = process.env.LAMBDA_URL || "https://7jxg5qrv5q2y6jd6wtaswameue0wiauf.lambda-url.us-east-1.on.aws/";
 
 export async function invokeAggregate(meetingId) {
-  const command = new InvokeCommand({
-    FunctionName: process.env.LAMBDA_FUNCTION_NAME || "bunggae-aggregate",
-    InvocationType: "Event", // 비동기
-    Payload: JSON.stringify({ meetingId }),
-  });
-
-  return lambda.send(command);
+  // 비동기 — fire and forget
+  fetch(LAMBDA_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ meetingId }),
+  }).catch((err) => console.error("Lambda URL 호출 실패:", err));
 }

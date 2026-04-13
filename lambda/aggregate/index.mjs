@@ -18,21 +18,20 @@ const bedrock = new BedrockRuntimeClient({
   region: process.env.AWS_REGION || "ap-northeast-2",
 });
 
-async function askClaude(prompt) {
+async function askAI(prompt) {
   const command = new InvokeModelCommand({
-    modelId: "anthropic.claude-3-haiku-20240307-v1:0",
+    modelId: "amazon.nova-lite-v1:0",
     contentType: "application/json",
     accept: "application/json",
     body: JSON.stringify({
-      anthropic_version: "bedrock-2023-05-31",
-      max_tokens: 1024,
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: "user", content: [{ text: prompt }] }],
+      inferenceConfig: { maxTokens: 1024 },
     }),
   });
 
   const response = await bedrock.send(command);
   const result = JSON.parse(new TextDecoder().decode(response.body));
-  return result.content[0].text;
+  return result.output.message.content[0].text;
 }
 
 function aggregateSlots(participants) {
@@ -79,7 +78,7 @@ function buildPrompt(meeting, participants, slotCounts, bestSlots, maxCount) {
 ## 모임 정보
 - 모임 생성자: ${meeting.creator}
 - 생성자가 제안한 장소: ${meeting.location || "미정"}
-- 후보 날짜: ${JSON.parse(meeting.dates).join(", ")}
+- 후보 날짜: ${(typeof meeting.dates === "string" ? JSON.parse(meeting.dates) : meeting.dates).join(", ")}
 - 총 참여자: ${participants.length}명
 
 ## 참여자별 정보
@@ -128,7 +127,9 @@ JSON으로 응답해줘:
 }
 
 export const handler = async (event) => {
-  const { meetingId } = event;
+  // Function URL은 body에 JSON 문자열로 전달
+  const parsed = event.body ? JSON.parse(event.body) : event;
+  const { meetingId } = parsed;
 
   if (!meetingId) {
     return { statusCode: 400, body: "meetingId is required" };
@@ -160,8 +161,9 @@ export const handler = async (event) => {
     const prompt = buildPrompt(meeting, participants, slotCounts, bestSlots, maxCount);
     let aiSummary;
     try {
-      const aiResponse = await askClaude(prompt);
-      // Claude 응답에서 JSON 추출
+      const aiResponse = await askAI(prompt);
+      console.log("AI raw response:", aiResponse);
+      // Claude/Nova 응답에서 JSON 추출
       const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
@@ -182,6 +184,7 @@ export const handler = async (event) => {
         recommendedPlace: meeting.location || "미정",
         oneLiner: `${bestSlots[0] || "시간 미정"}에 만나요! ⚡`,
         comment: `${participants.length}명이 응답했어요.`,
+        _debug_error: aiErr.message + " | " + (aiErr.stack || "").slice(0, 200),
       };
     }
 

@@ -47,6 +47,8 @@ export default function CreatePage() {
   const [error, setError] = useState<string | null>(null);
   const [createdMeetingId, setCreatedMeetingId] = useState<string | null>(null);
 
+  const dateInputRef = useRef<HTMLInputElement>(null);
+
   // Calendar State — 현재 월 기준
   const [calendarDate, setCalendarDate] = useState(() => {
     const now = new Date();
@@ -160,15 +162,17 @@ export default function CreatePage() {
       });
       setCreatedMeetingId(result.id);
       setStep("share");
-      confetti({
-        particleCount: 200,
-        spread: 100,
-        origin: { y: 0.5 },
-        colors: ['#FF90E8', '#FFD800', '#00E59B', '#90D0FF', '#FF9C2A', '#000000'],
-        disableForReducedMotion: true,
-        zIndex: 1000,
-        shapes: ['square', 'circle'],
-      });
+      try {
+        confetti({
+          particleCount: 200,
+          spread: 100,
+          origin: { y: 0.5 },
+          colors: ['#FF90E8', '#FFD800', '#00E59B', '#90D0FF', '#FF9C2A', '#000000'],
+          disableForReducedMotion: true,
+          zIndex: 1000,
+          shapes: ['square', 'circle'],
+        });
+      } catch {}
     } catch (err) {
       setError(err instanceof Error ? err.message : "모임 생성에 실패했어요. 다시 시도해주세요.");
     } finally {
@@ -178,9 +182,18 @@ export default function CreatePage() {
 
   const shareLink = createdMeetingId ? `${window.location.origin}/m/${createdMeetingId}` : "";
 
-  const handleCopyShareLink = () => {
+  const handleCopyShareLink = async () => {
     const textToCopy = `⚡️ ${name || "익명"}님이 번개를 쳤어요!\n📍 장소: ${location || "미정"}\n👇 가능한 시간을 골라주세요!\n${shareLink}`;
-    navigator.clipboard.writeText(textToCopy);
+    try {
+      await navigator.clipboard.writeText(textToCopy);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = textToCopy;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -256,7 +269,7 @@ export default function CreatePage() {
             <div className="absolute inset-0 bg-black rounded-full translate-x-1 translate-y-1 sm:translate-x-2 sm:translate-y-2 transition-transform group-hover:translate-x-1.5 group-hover:translate-y-1.5" />
             <div className="relative bg-[#90D0FF] border-4 border-black px-6 py-2 sm:py-3 rounded-full flex items-center gap-2 -rotate-2 group-hover:rotate-0 transition-transform duration-300">
               <p className="font-black text-black text-lg sm:text-xl tracking-tight">
-                {step === "date-selection" ? "무슨 날짜에 만날까? 📅" : step === "time-selection" ? "캘린더 켜지마! 여기서 쫙 그어 🖍️" : "번개 생성 완료! 🎉"}
+                <span>{step === "date-selection" ? "무슨 날짜에 만날까? 📅" : step === "time-selection" ? "캘린더 켜지마! 여기서 쫙 그어 🖍️" : "번개 생성 완료! 🎉"}</span>
               </p>
             </div>
           </div>
@@ -286,6 +299,7 @@ export default function CreatePage() {
         </AnimatePresence>
 
         {/* Inputs as Sticker Labels */}
+        <AnimatePresence mode="wait">
         {step === "date-selection" && (
           <motion.div 
             key="date-step"
@@ -300,7 +314,7 @@ export default function CreatePage() {
                   후보 날짜들을 선택해줘
                 </div>
                 <div className="bg-[#FF90E8] text-black px-3 py-1 rounded-full text-sm font-black flex items-center gap-1">
-                  {dates.length}일 선택됨
+                  <span>{dates.length}</span><span>일 선택됨</span>
                 </div>
               </div>
               
@@ -346,7 +360,7 @@ export default function CreatePage() {
                         `}
                       >
                         {isSelected && (
-                          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -top-1 -right-1 w-3 h-3 bg-white border-2 border-black rounded-full" />
+                          <div className="absolute -top-1 -right-1 w-3 h-3 bg-white border-2 border-black rounded-full" />
                         )}
                         {day}
                       </button>
@@ -424,7 +438,7 @@ export default function CreatePage() {
                 </div>
                 <div className="bg-white text-black px-3 py-1 rounded-full text-sm font-black flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                  {selectedCount}칸 선택됨
+                  <span>{selectedCount}</span><span>칸 선택됨</span>
                 </div>
               </div>
 
@@ -458,17 +472,29 @@ export default function CreatePage() {
                       ))}
                       
                       <th className="p-2 text-center pb-4 relative min-w-[80px]">
-                        <div className="relative inline-block w-full h-full">
-                          <input
-                            type="date"
-                            onChange={handleAddDate}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
-                          />
-                          <div className="bg-[#E5E7EB] border-2 border-dashed border-black/40 rounded-xl p-2 h-full flex flex-col items-center justify-center min-h-[70px] group-hover/add:border-black group-hover/add:bg-[#FFD800] transition-colors relative z-10">
+                        <input
+                          ref={dateInputRef}
+                          type="date"
+                          onChange={handleAddDate}
+                          className="sr-only"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const input = dateInputRef.current;
+                            if (input) {
+                              input.value = "";
+                              input.showPicker?.();
+                              if (!input.showPicker) input.click();
+                            }
+                          }}
+                          className="w-full"
+                        >
+                          <div className="bg-[#E5E7EB] border-2 border-dashed border-black/40 rounded-xl p-2 h-full flex flex-col items-center justify-center min-h-[70px] hover:border-black hover:bg-[#FFD800] transition-colors">
                             <Plus className="w-6 h-6 text-black/40" />
                             <span className="text-[10px] font-bold text-black/40 mt-1">날짜 추가</span>
                           </div>
-                        </div>
+                        </button>
                       </th>
                     </tr>
                   </thead>
@@ -514,11 +540,7 @@ export default function CreatePage() {
                                 )}
                                 
                                 {isSel && (
-                                  <motion.div
-                                    initial={{ scale: 0 }}
-                                    animate={{ scale: 1 }}
-                                    className="w-4 h-4 bg-white border-2 border-black rounded-full z-10"
-                                  />
+                                  <div className="w-4 h-4 bg-white border-2 border-black rounded-full z-10" />
                                 )}
                               </motion.div>
                             </td>
@@ -628,6 +650,7 @@ export default function CreatePage() {
             </div>
           </motion.div>
         )}
+        </AnimatePresence>
       </div>
 
       {/* Massive Sticky Bottom Bar - Console Style */}
