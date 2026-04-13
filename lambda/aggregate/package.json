@@ -1,0 +1,9 @@
+{
+  "name": "bunggae-aggregate-lambda",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "mysql2": "^3.11.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.600.0"
+  }
+}

@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+server/node_modules/
+lambda/aggregate/node_modules/
+
+# Environment variables (민감 정보)
+.env
+.env.local
+.env.production
+server/.env
+
+# Build output
+dist/
+build/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Lambda deploy artifacts
+lambda/aggregate/function.zip
+
+# Lock files (optional)
+package-lock.json
